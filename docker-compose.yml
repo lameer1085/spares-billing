@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16
+    container_name: spares-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: spares_billing
+      POSTGRES_USER: spares
+      POSTGRES_PASSWORD: spares_dev_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
