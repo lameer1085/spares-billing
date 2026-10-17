@@ -29,3 +29,5 @@ app:
   initial-owner:
     username: ${INITIAL_OWNER_USERNAME:owner}
     password: ${INITIAL_OWNER_PASSWORD:ChangeMe@123}
+  billing:
+    staff-max-discount-percent: 10
