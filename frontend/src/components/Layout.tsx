@@ -4,7 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 
 const links = [
   { to: '/', label: 'Home', ownerOnly: false },
-  // more screens are added here as we build them
+  { to: '/products', label: 'Products', ownerOnly: false },
 ]
 
 export default function Layout() {
