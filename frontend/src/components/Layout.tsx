@@ -3,9 +3,10 @@ import { AppBar, Box, Button, Chip, Toolbar, Typography } from '@mui/material'
 import { useAuth } from '../auth/AuthContext'
 
 const links = [
-  { to: '/', label: 'Home', ownerOnly: false },
-  { to: '/products', label: 'Products', ownerOnly: false },
-  { to: '/customers', label: 'Customers', ownerOnly: false },
+    { to: '/billing', label: 'Billing', ownerOnly: false },
+    { to: '/', label: 'Home', ownerOnly: false },
+    { to: '/products', label: 'Products', ownerOnly: false },
+    { to: '/customers', label: 'Customers', ownerOnly: false },
 ]
 
 export default function Layout() {

@@ -77,3 +77,26 @@ export interface DuesResponse {
   totalOutstanding: number
   customers: { customerId: number; name: string; phone: string | null; balance: number; creditLimit: number | null }[]
 }
+
+export type PayMethod = 'CASH' | 'UPI' | 'CARD' | 'BANK'
+
+export interface BalanceResponse {
+  customerId: number
+  customerName: string
+  balance: number
+  creditLimit: number
+  availableCredit: number
+}
+
+export interface InvoiceResult {
+  id: number
+  invoiceNo: string
+  grandTotal: number
+  paidAmount: number
+  dueAmount: number
+  roundOff: number
+  taxableAmount: number
+  cgstTotal: number
+  sgstTotal: number
+  igstTotal: number
+}
