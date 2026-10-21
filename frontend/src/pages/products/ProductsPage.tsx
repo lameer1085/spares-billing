@@ -73,16 +73,18 @@ export default function ProductsPage() {
           placeholder="Search part number, name, vehicle or brand (e.g. brake swift bosch)"
           value={search} onChange={(e) => resetPage(setSearch)(e.target.value)}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
-        <TextField select size="small" label="Brand" sx={{ minWidth: 150 }} value={brandId}
-          onChange={(e) => resetPage(setBrandId)(e.target.value)}>
-          <MenuItem value="">All</MenuItem>
-          {brands.data?.map((b) => <MenuItem key={b.id} value={b.id.toString()}>{b.name}</MenuItem>)}
-        </TextField>
-        <TextField select size="small" label="Category" sx={{ minWidth: 150 }} value={categoryId}
-          onChange={(e) => resetPage(setCategoryId)(e.target.value)}>
-          <MenuItem value="">All</MenuItem>
-          {categories.data?.map((c) => <MenuItem key={c.id} value={c.id.toString()}>{c.name}</MenuItem>)}
-        </TextField>
+              <TextField select size="small" label="Brand" sx={{ minWidth: 150 }} value={brandId}
+                  onChange={(e) => resetPage(setBrandId)(e.target.value)}
+                  slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}>
+                  <MenuItem value="">All</MenuItem>
+                  {brands.data?.map((b) => <MenuItem key={b.id} value={b.id.toString()}>{b.name}</MenuItem>)}
+              </TextField>
+              <TextField select size="small" label="Category" sx={{ minWidth: 150 }} value={categoryId}
+                  onChange={(e) => resetPage(setCategoryId)(e.target.value)}
+                  slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}>
+                  <MenuItem value="">All</MenuItem>
+                  {categories.data?.map((c) => <MenuItem key={c.id} value={c.id.toString()}>{c.name}</MenuItem>)}
+              </TextField>
         {isOwner && (
           <FormControlLabel label="Show inactive"
             control={<Checkbox checked={includeInactive} onChange={(e) => resetPage(setIncludeInactive)(e.target.checked)} />} />

@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import HomePage from './pages/HomePage'
 import ProductsPage from './pages/products/ProductsPage'
+import CustomersPage from './pages/customers/CustomersPage'
 
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/products" element={<ProductsPage />} />
+              <Route path="/customers" element={<CustomersPage />} />
             </Route>
           </Route>
         </Routes>
