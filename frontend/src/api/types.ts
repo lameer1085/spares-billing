@@ -100,3 +100,98 @@ export interface InvoiceResult {
   sgstTotal: number
   igstTotal: number
 }
+
+export interface InvoiceSummary {
+  id: number
+  invoiceNo: string
+  invoiceDate: string
+  customerId: number | null
+  customerName: string
+  grandTotal: number
+  paidAmount: number
+  dueAmount: number
+  status: 'ACTIVE' | 'CANCELLED'
+}
+
+export interface InvoiceLine {
+  description: string
+  hsnCode: string | null
+  quantity: number
+  unitPrice: number
+  discountAmount: number
+  taxableAmount: number
+  gstRate: number
+  cgstAmount: number
+  sgstAmount: number
+  igstAmount: number
+  lineTotal: number
+}
+
+export interface InvoiceFull {
+  id: number
+  invoiceNo: string
+  invoiceDate: string
+  status: 'ACTIVE' | 'CANCELLED'
+  cancelReason: string | null
+  placeOfSupply: string | null
+  placeOfSupplyName: string | null
+  subtotal: number
+  discountTotal: number
+  taxableAmount: number
+  cgstTotal: number
+  sgstTotal: number
+  igstTotal: number
+  roundOff: number
+  grandTotal: number
+  paidAmount: number
+  dueAmount: number
+  shop: {
+    shopName: string
+    address: string | null
+    phone: string | null
+    gstin: string | null
+    stateCode: string | null
+    stateName: string | null
+    invoicePrefix: string
+  }
+  customer: {
+    id: number
+    name: string
+    phone: string | null
+    gstin: string | null
+    address: string | null
+    stateCode: string | null
+    stateName: string | null
+  } | null
+  items: InvoiceLine[]
+  payments: { id: number; amount: number; method: string; reference: string | null; paymentDate: string; notes: string | null }[]
+}
+
+export interface PaymentRow {
+  id: number
+  customerId: number
+  customerName: string
+  invoiceId: number | null
+  invoiceNo: string | null
+  amount: number
+  method: string
+  reference: string | null
+  paymentDate: string
+  notes: string | null
+  status: 'ACTIVE' | 'REVERSED'
+  reverseReason: string | null
+}
+
+export interface PaymentResult {
+  amount: number
+  allocations: PaymentRow[]
+  customerBalance: number
+}
+
+export interface CollectionSummary {
+  from: string
+  to: string
+  byMethod: Record<string, number>
+  refundsByMethod?: Record<string, number>
+  total: number
+}

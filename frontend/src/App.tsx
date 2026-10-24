@@ -8,6 +8,9 @@ import ProductsPage from './pages/products/ProductsPage'
 import CustomersPage from './pages/customers/CustomersPage'
 import BillingPage from './pages/billing/BillingPage'
 import { DraftProvider } from './billing/DraftContext'
+import InvoicesPage from './pages/invoices/InvoicesPage'
+import PaymentsPage from './pages/payments/PaymentsPage'
+
 
 
 
@@ -24,6 +27,8 @@ export default function App() {
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/customers" element={<CustomersPage />} />
               <Route path="/billing" element={<BillingPage />} />
+              <Route path="/invoices" element={<InvoicesPage />} />
+              <Route path="/payments" element={<PaymentsPage />} />
             </Route>
           </Route>
         </Routes>

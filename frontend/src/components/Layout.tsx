@@ -7,6 +7,8 @@ const links = [
     { to: '/', label: 'Home', ownerOnly: false },
     { to: '/products', label: 'Products', ownerOnly: false },
     { to: '/customers', label: 'Customers', ownerOnly: false },
+    { to: '/invoices', label: 'Invoices', ownerOnly: false },
+    { to: '/payments', label: 'Payments', ownerOnly: false },
 ]
 
 export default function Layout() {

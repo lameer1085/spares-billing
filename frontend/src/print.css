@@ -1,0 +1,20 @@
+/* The printable bill is rendered into #print-root. It is invisible on screen. */
+#print-root { display: none; }
+
+@media print {
+  html, body { overflow: visible !important; height: auto !important; background: #fff !important; }
+  body > *:not(#print-root) { display: none !important; }
+  #print-root { display: block !important; color: #000; font-family: Arial, Helvetica, sans-serif; }
+  #print-root table { border-collapse: collapse; width: 100%; }
+  .a4 { font-size: 12px; }
+  .a4 th, .a4 td { border: 1px solid #444; padding: 3px 5px; }
+  .a4 th { background: #eee; }
+  .receipt { width: 72mm; font-size: 11px; }
+  .receipt td, .receipt th { padding: 1px 0; }
+  .num { text-align: right; }
+  .center { text-align: center; }
+  .watermark {
+    position: fixed; top: 40%; left: 10%; font-size: 90px; color: rgba(200, 0, 0, 0.18);
+    transform: rotate(-25deg); font-weight: bold; pointer-events: none;
+  }
+}

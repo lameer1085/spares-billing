@@ -8,9 +8,11 @@ import { useDebounce } from '../../hooks/useDebounce'
 interface Props {
   value: Customer | null
   onChange: (c: Customer | null) => void
+  label?: string
 }
 
-export default function CustomerPicker({ value, onChange }: Props) {
+  export default function CustomerPicker({ value, onChange, label = 'Customer (leave empty for walk-in)' }: Props) {
+// export default function CustomerPicker({ value, onChange }: Props) {
   const [input, setInput] = useState('')
   const q = useDebounce(input.trim(), 250)
 
@@ -52,9 +54,7 @@ export default function CustomerPicker({ value, onChange }: Props) {
             </li>
           )
         }}
-        renderInput={(params) => (
-  <TextField {...params} label="Customer (leave empty for walk-in)" />
-)}
+        renderInput={(params) => <TextField {...params} label={label} />}
       />
       {value && balance.data && (
         <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
