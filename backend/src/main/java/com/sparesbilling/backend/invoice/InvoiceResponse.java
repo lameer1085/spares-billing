@@ -21,7 +21,7 @@ public record InvoiceResponse(
     public record Line(String description, String hsnCode, int quantity, BigDecimal unitPrice,
                        BigDecimal discountAmount, BigDecimal taxableAmount, BigDecimal gstRate,
                        BigDecimal cgstAmount, BigDecimal sgstAmount, BigDecimal igstAmount,
-                       BigDecimal lineTotal) {}
+                       BigDecimal lineTotal, Long productId, int returnedQuantity) {}
 
     public record PaymentLine(Long id, BigDecimal amount, String method, String reference,
                               LocalDate paymentDate, String notes) {}

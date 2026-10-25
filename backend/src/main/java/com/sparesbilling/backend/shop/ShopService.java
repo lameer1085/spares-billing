@@ -31,6 +31,13 @@ public class ShopService {
         s.setGstin(gstin);
         s.setStateCode(state);
         s.setInvoicePrefix(req.invoicePrefix().trim().toUpperCase());
+        s.setPincode(ContactRules.blankToNull(req.pincode()));
+        s.setBankAccountName(ContactRules.blankToNull(req.bankAccountName()));
+        s.setBankName(ContactRules.blankToNull(req.bankName()));
+        s.setBankAccountNo(ContactRules.blankToNull(req.bankAccountNo()));
+        String ifsc = ContactRules.blankToNull(req.bankIfsc());
+        s.setBankIfsc(ifsc == null ? null : ifsc.trim().toUpperCase());
+        s.setUpiId(ContactRules.blankToNull(req.upiId()));
         return ShopSettingsResponse.from(s);
     }
 

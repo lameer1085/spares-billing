@@ -44,9 +44,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("message", msg));
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<Map<String, String>> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.badRequest().body(Map.of("message", "Malformed or missing request body"));
+//    @ExceptionHandler(HttpMessageNotReadableException.class)
+//    public ResponseEntity<Map<String, String>> handleUnreadable(HttpMessageNotReadableException ex) {
+//        return ResponseEntity.badRequest().body(Map.of("message", "Malformed or missing request body"));
+//    }
+
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public org.springframework.http.ResponseEntity<java.util.Map<String, String>> unreadableBody(
+            org.springframework.http.converter.HttpMessageNotReadableException e) {
+        String m = e.getMostSpecificCause().getMessage();
+        String text = "Request body is missing or not valid JSON";
+        if (m != null && m.startsWith("Unrecognized")) {
+            int cut = m.indexOf(" (class");
+            text = cut > 0 ? m.substring(0, cut) : m.split("\n")[0];
+        }
+        return org.springframework.http.ResponseEntity.badRequest().body(java.util.Map.of("message", text));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

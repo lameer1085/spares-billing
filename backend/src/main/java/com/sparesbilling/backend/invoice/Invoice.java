@@ -81,8 +81,14 @@ public class Invoice {
     @JoinColumn(name = "invoice_id", nullable = false)
     private List<InvoiceItem> items = new ArrayList<>();
 
-    /** Amount the customer still owes on this invoice. Cancelled invoices owe nothing. */
+    @Column(name = "credited_amount", nullable = false, precision = 12, scale = 2)
+    private BigDecimal creditedAmount = BigDecimal.ZERO;
+
+    /** What the customer still owes on this invoice, after returns and payments. Never below 0. */
     public BigDecimal due() {
-        return status == InvoiceStatus.CANCELLED ? BigDecimal.ZERO : grandTotal.subtract(paidAmount);
+        if (status == InvoiceStatus.CANCELLED) {
+            return BigDecimal.ZERO;
+        }
+        return grandTotal.subtract(creditedAmount).subtract(paidAmount).max(BigDecimal.ZERO);
     }
 }

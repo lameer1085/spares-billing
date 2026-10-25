@@ -1,4 +1,5 @@
 package com.sparesbilling.backend.quotation;
 
-public class QuotationStatus {
+public enum QuotationStatus {
+    OPEN, CANCELLED
 }

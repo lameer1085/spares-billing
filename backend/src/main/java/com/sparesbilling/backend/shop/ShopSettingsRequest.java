@@ -11,5 +11,12 @@ public record ShopSettingsRequest(
         @Size(max = 15) String gstin,
         @Size(max = 2) String stateCode,
         @NotBlank @Pattern(regexp = "^[A-Za-z0-9]{1,4}$", message = "Prefix must be 1 to 4 letters or digits")
-        String invoicePrefix
+        String invoicePrefix,
+        @Pattern(regexp = "^$|^[0-9]{6}$", message = "Pincode must be 6 digits") String pincode,
+        @Size(max = 150) String bankAccountName,
+        @Size(max = 150) String bankName,
+        @Pattern(regexp = "^$|^[0-9]{6,30}$", message = "Account number must be digits only") String bankAccountNo,
+        @Pattern(regexp = "^$|^[A-Za-z]{4}0[A-Za-z0-9]{6}$", message = "IFSC looks wrong (example: SBIN0001234)")
+        String bankIfsc,
+        @Size(max = 100) String upiId
 ) {}

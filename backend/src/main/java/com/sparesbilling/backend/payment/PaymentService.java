@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.sparesbilling.backend.creditnote.CreditNoteRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,6 +36,7 @@ public class PaymentService {
     private final CustomerRepository customerRepository;
     private final LedgerService ledgerService;
     private final CurrentUser currentUser;
+    private final CreditNoteRepository creditNoteRepository;
 
     // ---------- receive money ----------
 
@@ -103,6 +105,10 @@ public class PaymentService {
         if (p.getInvoiceId() != null) {
             Invoice inv = invoiceRepository.findByIdForUpdate(p.getInvoiceId())
                     .orElseThrow(() -> new NotFoundException("Invoice not found"));
+            if (inv.getPaidAmount().compareTo(p.getAmount()) < 0) {
+                throw new IllegalArgumentException(
+                        "Part of this payment was refunded through a credit note, so it cannot be reversed.");
+            }
             inv.setPaidAmount(inv.getPaidAmount().subtract(p.getAmount()));
         }
         p.setStatus(PaymentStatus.REVERSED);
@@ -141,7 +147,7 @@ public class PaymentService {
                 result.getTotalElements(), result.getTotalPages());
     }
 
-    /** Money received per method between two dates (default: today). */
+    /** Money received per method between two dates (default: today), minus refunds paid out. */
     @Transactional(readOnly = true)
     public CollectionSummary summary(LocalDate from, LocalDate to) {
         LocalDate f = from == null ? LocalDate.now(SHOP_ZONE) : from;
@@ -149,16 +155,26 @@ public class PaymentService {
         if (t.isBefore(f)) {
             throw new IllegalArgumentException("'to' date cannot be before 'from' date");
         }
-        Map<String, BigDecimal> byMethod = new LinkedHashMap<>();
+        Map<String, BigDecimal> received = new LinkedHashMap<>();
+        Map<String, BigDecimal> refunds = new LinkedHashMap<>();
         for (PaymentMethod m : PaymentMethod.values()) {
-            byMethod.put(m.name(), BigDecimal.ZERO.setScale(2));
+            received.put(m.name(), BigDecimal.ZERO.setScale(2));
+            refunds.put(m.name(), BigDecimal.ZERO.setScale(2));
         }
-        BigDecimal total = BigDecimal.ZERO.setScale(2);
         for (PaymentRepository.MethodTotal row : paymentRepository.sumByMethod(f, t)) {
-            byMethod.put(row.getMethod().name(), row.getTotal());
-            total = total.add(row.getTotal());
+            received.put(row.getMethod().name(), row.getTotal());
         }
-        return new CollectionSummary(f, t, byMethod, total);
+        for (CreditNoteRepository.MethodTotal row : creditNoteRepository.sumRefundsByMethod(f, t)) {
+            refunds.put(row.getMethod().name(), row.getTotal());
+        }
+        Map<String, BigDecimal> net = new LinkedHashMap<>();
+        BigDecimal total = BigDecimal.ZERO.setScale(2);
+        for (String m : received.keySet()) {
+            BigDecimal n = received.get(m).subtract(refunds.get(m));
+            net.put(m, n);
+            total = total.add(n);
+        }
+        return new CollectionSummary(f, t, net, refunds, total);
     }
 
     // ---------- helpers ----------

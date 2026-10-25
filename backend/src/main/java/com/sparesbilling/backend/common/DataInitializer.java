@@ -32,6 +32,7 @@ public class DataInitializer implements CommandLineRunner {
             owner.setPasswordHash(passwordEncoder.encode(ownerPassword));
             owner.setFullName("Shop Owner");
             owner.setRole(Role.OWNER);
+            owner.setMustChangePassword(true);
             userRepository.save(owner);
             log.warn("Created initial OWNER user '{}'. Change this password immediately!", ownerUsername);
         }

@@ -29,8 +29,8 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(req.username(), req.password()));
         User u = userRepository.findByUsername(req.username()).orElseThrow();
         String token = jwtService.generateToken(u.getUsername(), u.getRole().name());
-        return new LoginResponse(token, u.getUsername(), u.getFullName(), u.getRole().name());
-    }
+        return new LoginResponse(token, u.getUsername(), u.getFullName(), u.getRole().name(),
+                u.isMustChangePassword());    }
 
     @GetMapping("/me")
     public UserResponse me(Authentication auth) {
@@ -45,7 +45,11 @@ public class AuthController {
         if (!passwordEncoder.matches(req.currentPassword(), u.getPasswordHash())) {
             throw new IllegalArgumentException("Current password is incorrect");
         }
+        if (passwordEncoder.matches(req.newPassword(), u.getPasswordHash())) {
+            throw new IllegalArgumentException("New password must be different from the current one");
+        }
         u.setPasswordHash(passwordEncoder.encode(req.newPassword()));
+        u.setMustChangePassword(false);
         userRepository.save(u);
         return ResponseEntity.noContent().build();
     }

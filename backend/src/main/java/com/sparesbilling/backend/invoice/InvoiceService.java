@@ -17,6 +17,8 @@ import com.sparesbilling.backend.shop.ShopSettingsResponse;
 import com.sparesbilling.backend.stock.StockMovementType;
 import com.sparesbilling.backend.stock.StockService;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -25,6 +27,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.sparesbilling.backend.ledger.LedgerService;
+import com.sparesbilling.backend.creditnote.CreditNoteItem;
+import com.sparesbilling.backend.creditnote.CreditNoteItemRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -49,6 +54,8 @@ public class InvoiceService {
     private final ShopSettingsRepository shopRepository;
     private final StockService stockService;
     private final CurrentUser currentUser;
+    private final LedgerService ledgerService;
+    private final CreditNoteItemRepository creditNoteItemRepository;
 
     @Value("${app.billing.staff-max-discount-percent:10}")
     private BigDecimal staffMaxDiscountPercent;
@@ -61,7 +68,16 @@ public class InvoiceService {
         Specification<Invoice> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             if (q != null && !q.isBlank()) {
-                ps.add(cb.like(cb.lower(root.<String>get("invoiceNo")), ContactRules.searchPattern(q)));
+                String pattern = ContactRules.searchPattern(q);
+                // customers whose name or phone matches
+                Subquery<Long> sub = query.subquery(Long.class);
+                Root<Customer> c = sub.from(Customer.class);
+                sub.select(c.<Long>get("id")).where(cb.or(
+                        cb.like(cb.lower(c.<String>get("name")), pattern),
+                        cb.like(cb.lower(c.<String>get("phone")), pattern)));
+                ps.add(cb.or(
+                        cb.like(cb.lower(root.<String>get("invoiceNo")), pattern),
+                        root.get("customerId").in(sub)));
             }
             if (customerId != null) ps.add(cb.equal(root.get("customerId"), customerId));
             if (from != null) ps.add(cb.greaterThanOrEqualTo(root.<LocalDate>get("invoiceDate"), from));
@@ -189,6 +205,7 @@ public class InvoiceService {
             item.setHsnCode(p.getHsnCode());
             item.setQuantity(it.quantity());
             item.setUnitPrice(unitPrice);
+            item.setCostPrice(p.getPurchasePrice());
             item.setDiscountAmount(discount);
             item.setTaxableAmount(taxable);
             item.setGstRate(rate);
@@ -224,9 +241,7 @@ public class InvoiceService {
                 throw new IllegalArgumentException(
                         "Walk-in customers must pay in full. Select a customer to bill on credit.");
             }
-            BigDecimal billed = nz(invoiceRepository.sumActiveTotalByCustomer(customer.getId()));
-            BigDecimal received = nz(paymentRepository.sumByCustomer(customer.getId()));
-            BigDecimal balance = customer.getOpeningBalance().add(billed).subtract(received);
+            BigDecimal balance = ledgerService.balanceOf(customer);
             if (balance.add(due).compareTo(customer.getCreditLimit()) > 0) {
                 throw new IllegalArgumentException("Credit limit exceeded. Current balance: " + balance
                         + ", this bill on credit: " + due + ", limit: " + customer.getCreditLimit());
@@ -268,6 +283,10 @@ public class InvoiceService {
                 .orElseThrow(() -> new NotFoundException("Invoice not found"));
         if (inv.getStatus() == InvoiceStatus.CANCELLED) {
             throw new IllegalArgumentException("Invoice is already cancelled");
+        }
+        if (inv.getCreditedAmount().signum() > 0) {
+            throw new IllegalArgumentException(
+                    "This invoice has credit notes (returns), so it cannot be cancelled.");
         }
         List<InvoiceItem> items = inv.getItems().stream()
                 .sorted(Comparator.comparing(InvoiceItem::getProductId)).toList();
@@ -312,10 +331,18 @@ public class InvoiceService {
                     .orElse(null);
         }
 
+        Map<Long, Integer> returned = i.getItems().isEmpty() ? Map.of()
+                : creditNoteItemRepository
+                  .findByInvoiceItemIdIn(i.getItems().stream().map(InvoiceItem::getId).toList())
+                  .stream()
+                  .collect(Collectors.groupingBy(CreditNoteItem::getInvoiceItemId,
+                          Collectors.summingInt(CreditNoteItem::getQuantity)));
+
         List<InvoiceResponse.Line> lines = i.getItems().stream()
                 .map(x -> new InvoiceResponse.Line(x.getDescription(), x.getHsnCode(), x.getQuantity(),
                         x.getUnitPrice(), x.getDiscountAmount(), x.getTaxableAmount(), x.getGstRate(),
-                        x.getCgstAmount(), x.getSgstAmount(), x.getIgstAmount(), x.getLineTotal()))
+                        x.getCgstAmount(), x.getSgstAmount(), x.getIgstAmount(), x.getLineTotal(),
+                        x.getProductId(), returned.getOrDefault(x.getId(), 0)))
                 .toList();
 
         List<InvoiceResponse.PaymentLine> payments = paymentRepository.findActiveByInvoiceId(i.getId())

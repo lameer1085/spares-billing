@@ -32,4 +32,22 @@ public class ShopSettings {
 
     @Column(name = "invoice_prefix", nullable = false, length = 10)
     private String invoicePrefix;
+
+    @Column(length = 6)
+    private String pincode;
+
+    @Column(name = "bank_account_name", length = 150)
+    private String bankAccountName;
+
+    @Column(name = "bank_name", length = 150)
+    private String bankName;
+
+    @Column(name = "bank_account_no", length = 30)
+    private String bankAccountNo;
+
+    @Column(name = "bank_ifsc", length = 11)
+    private String bankIfsc;
+
+    @Column(name = "upi_id", length = 100)
+    private String upiId;
 }

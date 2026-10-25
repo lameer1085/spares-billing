@@ -1,4 +1,8 @@
 package com.sparesbilling.backend.creditnote;
 
-public class CreditNoteSummary {
-}
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+public record CreditNoteSummary(Long id, String creditNoteNo, LocalDate creditNoteDate, Long invoiceId,
+                                String invoiceNo, String customerName, BigDecimal grandTotal,
+                                BigDecimal refundAmount) {}

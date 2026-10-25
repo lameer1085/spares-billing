@@ -1,6 +1,8 @@
 package com.sparesbilling.backend.ledger;
 
 import com.sparesbilling.backend.common.NotFoundException;
+import com.sparesbilling.backend.creditnote.CreditNote;
+import com.sparesbilling.backend.creditnote.CreditNoteRepository;
 import com.sparesbilling.backend.customer.Customer;
 import com.sparesbilling.backend.customer.CustomerRepository;
 import com.sparesbilling.backend.invoice.Invoice;
@@ -25,12 +27,18 @@ public class LedgerService {
     private final CustomerRepository customerRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final CreditNoteRepository creditNoteRepository;
 
-    /** What the customer owes. Positive = owes us, negative = paid in advance. */
+    /**
+     * What the customer owes. Positive = owes us, negative = paid in advance.
+     * opening + bills - returns + refunds paid out - payments received
+     */
     public BigDecimal balanceOf(Customer c) {
         BigDecimal billed = nz(invoiceRepository.sumActiveTotalByCustomer(c.getId()));
         BigDecimal received = nz(paymentRepository.sumByCustomer(c.getId()));
-        return c.getOpeningBalance().add(billed).subtract(received);
+        BigDecimal returned = nz(creditNoteRepository.sumGrandByCustomer(c.getId()));
+        BigDecimal refunded = nz(creditNoteRepository.sumRefundByCustomer(c.getId()));
+        return c.getOpeningBalance().add(billed).subtract(returned).add(refunded).subtract(received);
     }
 
     @Transactional(readOnly = true)
@@ -49,12 +57,16 @@ public class LedgerService {
         Map<Long, BigDecimal> received = paymentRepository.sumActiveGroupedByCustomer().stream()
                 .collect(Collectors.toMap(PaymentRepository.CustomerTotal::getCustomerId,
                         PaymentRepository.CustomerTotal::getAmount));
+        Map<Long, BigDecimal> returnedNet = creditNoteRepository.sumNetGroupedByCustomer().stream()
+                .collect(Collectors.toMap(CreditNoteRepository.CustomerTotal::getCustomerId,
+                        CreditNoteRepository.CustomerTotal::getAmount));
 
         List<DuesResponse.Row> rows = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
         for (Customer c : customerRepository.findAll()) {
             BigDecimal balance = c.getOpeningBalance()
                     .add(billed.getOrDefault(c.getId(), BigDecimal.ZERO))
+                    .subtract(returnedNet.getOrDefault(c.getId(), BigDecimal.ZERO))
                     .subtract(received.getOrDefault(c.getId(), BigDecimal.ZERO));
             if (balance.signum() > 0) {
                 rows.add(new DuesResponse.Row(c.getId(), c.getName(), c.getPhone(), balance, c.getCreditLimit()));
@@ -97,7 +109,17 @@ public class LedgerService {
                         p.getAmount(), BigDecimal.ZERO));
             }
         }
-        // same day: bill first, then payment, then cancellations/reversals
+        for (CreditNote cn : creditNoteRepository.findByCustomerIdOrderByIdAsc(customerId)) {
+            String against = invoiceNos.get(cn.getInvoiceId());
+            rows.add(new Row(cn.getCreditNoteDate(), 1, cn.getId(), "CREDIT_NOTE", cn.getCreditNoteNo(),
+                    "Return" + (against != null ? " (against " + against + ")" : "") + ": " + cn.getReason(),
+                    BigDecimal.ZERO, cn.getGrandTotal()));
+            if (cn.getRefundAmount().signum() > 0) {
+                rows.add(new Row(cn.getCreditNoteDate(), 3, cn.getId(), "REFUND", cn.getCreditNoteNo(),
+                        "Refund paid by " + cn.getRefundMethod(), cn.getRefundAmount(), BigDecimal.ZERO));
+            }
+        }
+        // same day: bill first, then payments/returns, then cancellations/reversals, then refunds
         rows.sort(Comparator.comparing(Row::date).thenComparingInt(Row::order).thenComparingLong(Row::seq));
 
         BigDecimal running = c.getOpeningBalance();

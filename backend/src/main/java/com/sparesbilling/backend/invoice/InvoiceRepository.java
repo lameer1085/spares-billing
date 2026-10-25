@@ -26,7 +26,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long>, JpaSpec
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Invoice i where i.customerId = :customerId "
             + "and i.status = com.sparesbilling.backend.invoice.InvoiceStatus.ACTIVE "
-            + "and i.grandTotal > i.paidAmount order by i.invoiceDate asc, i.id asc")
+            + "and i.grandTotal - i.creditedAmount > i.paidAmount order by i.invoiceDate asc, i.id asc")
     List<Invoice> findOpenInvoicesForUpdate(@Param("customerId") Long customerId);
 
     interface CustomerTotal {
