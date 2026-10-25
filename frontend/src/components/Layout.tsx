@@ -3,12 +3,18 @@ import { AppBar, Box, Button, Chip, Toolbar, Typography } from '@mui/material'
 import { useAuth } from '../auth/AuthContext'
 
 const links = [
-    { to: '/billing', label: 'Billing', ownerOnly: false },
     { to: '/', label: 'Home', ownerOnly: false },
     { to: '/products', label: 'Products', ownerOnly: false },
     { to: '/customers', label: 'Customers', ownerOnly: false },
+    { to: '/billing', label: 'Billing', ownerOnly: false },
     { to: '/invoices', label: 'Invoices', ownerOnly: false },
     { to: '/payments', label: 'Payments', ownerOnly: false },
+    { to: '/credit-notes', label: 'Returns', ownerOnly: false },
+    { to: '/purchases', label: 'Purchases', ownerOnly: true },
+    { to: '/suppliers', label: 'Suppliers', ownerOnly: true },
+    { to: '/quotations', label: 'Quotations', ownerOnly: false },
+    { to: '/reports', label: 'Reports', ownerOnly: true },
+    { to: '/settings', label: 'Settings', ownerOnly: true },
 ]
 
 export default function Layout() {

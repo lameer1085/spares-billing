@@ -10,6 +10,16 @@ import BillingPage from './pages/billing/BillingPage'
 import { DraftProvider } from './billing/DraftContext'
 import InvoicesPage from './pages/invoices/InvoicesPage'
 import PaymentsPage from './pages/payments/PaymentsPage'
+import CreditNotesPage from './pages/invoices/CreditNotesPage'
+import PurchasesPage from './pages/purchases/PurchasesPage'
+import PurchaseEntryPage from './pages/purchases/PurchaseEntryPage'
+import SuppliersPage from './pages/suppliers/SuppliersPage'
+import ReportsPage from './pages/reports/ReportsPage'
+import QuotationsPage from './pages/quotations/QuotationsPage'
+import QuotationFormPage from './pages/quotations/QuotationFormPage'
+import SettingsPage from './pages/settings/SettingsPage'
+
+
 
 
 
@@ -29,6 +39,17 @@ export default function App() {
               <Route path="/billing" element={<BillingPage />} />
               <Route path="/invoices" element={<InvoicesPage />} />
               <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/credit-notes" element={<CreditNotesPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/quotations" element={<QuotationsPage />} />
+              <Route path="/quotations/new" element={<QuotationFormPage />} />
+              <Route path="/quotations/:id/edit" element={<QuotationFormPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+            <Route element={<ProtectedRoute ownerOnly />}>
+              <Route path="/purchases" element={<PurchasesPage />} />
+              <Route path="/purchases/new" element={<PurchaseEntryPage />} />
+              <Route path="/suppliers" element={<SuppliersPage />} />
             </Route>
           </Route>
         </Routes>

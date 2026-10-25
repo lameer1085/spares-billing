@@ -6,16 +6,20 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material'
 import { api, errorMessage } from '../../api/client'
-import { inr, type InvoiceFull } from '../../api/types'
+import { inr, type CreditNoteSummary, type InvoiceFull, type PageResponse } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
 import { fmtDate } from '../../utils/format'
 import PrintableInvoice from './PrintableInvoice'
+import ReturnDialog from './ReturnDialog'
+import CreditNoteDialog from './CreditNoteDialog'
 
 export default function InvoiceDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const { isOwner } = useAuth()
   const qc = useQueryClient()
   const [printMode, setPrintMode] = useState<'a4' | 'receipt' | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [returning, setReturning] = useState(false)
+  const [openCn, setOpenCn] = useState<number | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
 
@@ -24,7 +28,14 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
     queryFn: async () => (await api.get<InvoiceFull>(`/invoices/${id}`)).data,
   })
 
-  // Print after the printable copy has been placed on the page
+  const creditNotes = useQuery({
+    queryKey: ['credit-notes', 'invoice', id],
+    queryFn: async () =>
+      (await api.get<PageResponse<CreditNoteSummary>>('/credit-notes', { params: { invoiceId: id, size: 100 } })).data.content,
+  })
+  const notes = creditNotes.data ?? []
+  const creditedBefore = notes.reduce((s, n) => s + n.grandTotal, 0)
+
   useEffect(() => {
     if (!printMode) return
     const t = setTimeout(() => { window.print(); setPrintMode(null) }, 150)
@@ -34,11 +45,8 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
   const cancel = useMutation({
     mutationFn: () => api.post(`/invoices/${id}/cancel`, { reason: reason.trim() }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['invoice', id] })
-      qc.invalidateQueries({ queryKey: ['invoices'] })
-      qc.invalidateQueries({ queryKey: ['products'] })
-      qc.invalidateQueries({ queryKey: ['dues'] })
-      qc.invalidateQueries({ queryKey: ['balance'] })
+      for (const k of ['invoice', 'invoices', 'products', 'dues', 'balance'])
+        qc.invalidateQueries({ queryKey: [k] })
       setCancelling(false)
       setReason('')
     },
@@ -46,15 +54,16 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
   })
 
   const igst = (inv?.igstTotal ?? 0) > 0
+  const active = inv?.status === 'ACTIVE'
+  const canReturn = isOwner && active && !!inv?.items.some((l) => l.quantity - l.returnedQuantity > 0)
+  const canCancel = isOwner && active && notes.length === 0 && !creditNotes.isLoading
 
   return (
     <>
       <Dialog open onClose={onClose} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {inv?.invoiceNo ?? 'Invoice'}
-          {inv && (
-            <Chip size="small" label={inv.status} color={inv.status === 'ACTIVE' ? 'success' : 'error'} />
-          )}
+          {inv && <Chip size="small" label={inv.status} color={active ? 'success' : 'error'} />}
         </DialogTitle>
         <DialogContent>
           {isLoading && <CircularProgress />}
@@ -93,7 +102,13 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
                 <TableBody>
                   {inv.items.map((l, i) => (
                     <TableRow key={i}>
-                      <TableCell>{l.description}</TableCell>
+                      <TableCell>
+                        {l.description}
+                        {l.returnedQuantity > 0 && (
+                          <Chip size="small" color="warning" variant="outlined" sx={{ ml: 1 }}
+                            label={`${l.returnedQuantity} returned`} />
+                        )}
+                      </TableCell>
                       <TableCell>{l.hsnCode}</TableCell>
                       <TableCell align="right">{l.quantity}</TableCell>
                       <TableCell align="right">{inr(l.unitPrice)}</TableCell>
@@ -128,11 +143,32 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
                 </Box>
               )}
 
+              {notes.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2">Credit notes (returns)</Typography>
+                  {notes.map((n) => (
+                    <Box key={n.id} sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                      <Button size="small" onClick={() => setOpenCn(n.id)}>{n.creditNoteNo}</Button>
+                      <Typography variant="body2">
+                        {fmtDate(n.creditNoteDate)} · {inr(n.grandTotal)}
+                        {n.refundAmount > 0 ? ` · refunded ${inr(n.refundAmount)}` : ''}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+
+              {isOwner && active && notes.length > 0 && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  This bill cannot be cancelled because returns were recorded on it. Record further returns instead.
+                </Alert>
+              )}
+
               {cancelling && (
                 <Box sx={{ mt: 3, p: 2, border: 1, borderColor: 'error.main', borderRadius: 1 }}>
                   <Typography sx={{ mb: 1 }}>
                     Cancelling puts the stock back and removes this bill from sales and the customer's balance.
-                    For a filed GST month, use a credit note (return) instead.
+                    For a filed GST month, use Return items (credit note) instead.
                   </Typography>
                   {error && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
                   <TextField label="Reason for cancelling" fullWidth size="small" autoFocus value={reason}
@@ -150,14 +186,22 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
           )}
         </DialogContent>
         <DialogActions>
-          {isOwner && inv?.status === 'ACTIVE' && !cancelling && (
+          {canCancel && !cancelling && (
             <Button color="error" onClick={() => setCancelling(true)} sx={{ mr: 'auto' }}>Cancel invoice</Button>
           )}
+          {canReturn && <Button color="warning" onClick={() => setReturning(true)}>Return items</Button>}
           <Button disabled={!inv} onClick={() => setPrintMode('receipt')}>Print receipt</Button>
           <Button variant="contained" disabled={!inv} onClick={() => setPrintMode('a4')}>Print A4</Button>
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {inv && returning && (
+        <ReturnDialog invoice={inv} creditedBefore={creditedBefore}
+          onClose={() => setReturning(false)}
+          onCreated={(cnId) => { setReturning(false); setOpenCn(cnId) }} />
+      )}
+      {openCn !== null && <CreditNoteDialog id={openCn} onClose={() => setOpenCn(null)} />}
 
       {inv && printMode && createPortal(
         <div id="print-root"><PrintableInvoice inv={inv} mode={printMode} /></div>,
