@@ -12,7 +12,8 @@ import { usePersistentState } from '../../hooks/usePersistentState'
 import ProductSearch from '../billing/ProductSearch'
 import SupplierPicker from './SupplierPicker'
 
-interface PLine { product: Product; qty: string; unitCost: string; gst: string }
+// cost = what you pay the supplier (excl. GST). sell = what Billing will charge (incl. GST).
+interface PLine { product: Product; qty: string; unitCost: string; gst: string; sell: string }
 interface Draft {
   supplier: Supplier | null
   invoiceNo: string
@@ -29,6 +30,14 @@ const makeEmpty = (): Draft => ({
   supplier: null, invoiceNo: '', date: todayIST(), lines: [], paid: '', method: 'CASH', notes: '', updatePrice: true,
 })
 const cents = (n: number) => Math.round(n * 100)
+
+// drafts saved before this version have no "sell" value, so fall back to the part's current price
+const sellOf = (l: PLine) => l.sell ?? String(l.product.sellingPrice ?? '')
+const costWithGst = (l: PLine) => (Number(l.unitCost) || 0) * (1 + (Number(l.gst) || 0) / 100)
+const belowCost = (l: PLine) => {
+  const s = Number(sellOf(l))
+  return s > 0 && s < costWithGst(l) - 0.005
+}
 
 // Same rule as the server: line = qty × cost + GST on that, each line rounded to paise
 function lineTotal(l: PLine): number {
@@ -66,6 +75,7 @@ export default function PurchaseEntryPage() {
         ...prev,
         lines: [...prev.lines, {
           product: p, qty: '1', unitCost: String(p.purchasePrice ?? ''), gst: String(p.gstRate),
+          sell: String(p.sellingPrice ?? ''),
         }],
       }
     })
@@ -78,15 +88,17 @@ export default function PurchaseEntryPage() {
     searchRef.current?.focus()
   }
 
-  // ---- problems, shown in the right panel so the table never moves ----
+  // ---- problems and warnings, shown in the right panel so the table never moves ----
   const lineProblems = d.lines.flatMap((l) => {
     const out: string[] = []
     const q = Number(l.qty)
     if (!Number.isInteger(q) || q < 1) out.push(`${l.product.partNumber}: quantity must be a whole number, 1 or more`)
     if (l.unitCost === '' || Number(l.unitCost) < 0) out.push(`${l.product.partNumber}: enter the cost price`)
     if (l.gst === '' || Number(l.gst) < 0 || Number(l.gst) > 40) out.push(`${l.product.partNumber}: GST must be 0 to 40`)
+    if (sellOf(l) !== '' && Number(sellOf(l)) <= 0) out.push(`${l.product.partNumber}: selling price must be more than 0`)
     return out
   })
+  const belowCostLines = d.lines.filter(belowCost)
   const supplierError = touched && !d.supplier ? 'Choose a supplier' : ''
   const paidError =
     d.paid !== '' && (paid < 0 || paid > total) ? `Cannot be more than the total (${inr(total)})` : ''
@@ -98,9 +110,14 @@ export default function PurchaseEntryPage() {
         supplierId: d.supplier!.id,
         supplierInvoiceNo: d.invoiceNo.trim() || null,
         purchaseDate: d.date,
-        items: d.lines.map((l) => ({
-          productId: l.product.id, quantity: Number(l.qty), unitCost: Number(l.unitCost), gstRate: Number(l.gst),
-        })),
+        items: d.lines.map((l) => {
+          const sell = Number(sellOf(l))
+          const changed = sellOf(l) !== '' && sell > 0 && cents(sell) !== cents(l.product.sellingPrice ?? 0)
+          return {
+            productId: l.product.id, quantity: Number(l.qty), unitCost: Number(l.unitCost), gstRate: Number(l.gst),
+            ...(changed ? { newSellingPrice: sell } : {}),
+          }
+        }),
         paidAmount: paid,
         paymentMethod: d.method,
         notes: d.notes.trim() || null,
@@ -109,7 +126,7 @@ export default function PurchaseEntryPage() {
     onSuccess: (p) => {
       setSaved(p)
       clearDraft()
-      for (const k of ['purchases', 'purchase-dues', 'products', 'product-pick'])
+      for (const k of ['purchases', 'purchase-dues', 'products', 'product-pick', 'dashboard'])
         qc.invalidateQueries({ queryKey: [k] })
     },
     onError: (e) => {
@@ -127,6 +144,8 @@ export default function PurchaseEntryPage() {
     save.mutate()
   }
 
+  const rightAlign = { htmlInput: { style: { textAlign: 'right' as const } } }
+
   return (
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -134,22 +153,26 @@ export default function PurchaseEntryPage() {
         <Button onClick={() => navigate('/purchases')}>Back to purchases</Button>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 2, alignItems: 'start' }}>
-        <Box sx={{ display: 'grid', gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 340px' }, gap: 2, alignItems: 'start' }}>
+        <Box sx={{ display: 'grid', gap: 2, minWidth: 0 }}>
           <Paper sx={{ p: 2 }}>
             <ProductSearch onPick={addProduct} inputRef={searchRef} />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Cost is what you pay the supplier, before GST. Selling price is what the Billing screen charges, GST included.
+            </Typography>
           </Paper>
 
-          <Paper>
-            <Table size="small">
+          <Paper sx={{ overflowX: 'auto' }}>
+            <Table size="small" sx={{ minWidth: 1000, tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
                   <TableCell>Part</TableCell>
-                  <TableCell align="right" sx={{ width: 90 }}>Qty</TableCell>
-                  <TableCell align="right" sx={{ width: 130 }}>Cost (excl. GST)</TableCell>
-                  <TableCell align="right" sx={{ width: 90 }}>GST %</TableCell>
-                  <TableCell align="right">Line total</TableCell>
-                  <TableCell />
+                  <TableCell align="right" sx={{ width: 110 }}>Qty</TableCell>
+                  <TableCell align="right" sx={{ width: 150 }}>Cost (excl. GST)</TableCell>
+                  <TableCell align="right" sx={{ width: 100 }}>GST %</TableCell>
+                  <TableCell align="right" sx={{ width: 160 }}>Selling price (incl. GST)</TableCell>
+                  <TableCell align="right" sx={{ width: 130 }}>Line total</TableCell>
+                  <TableCell sx={{ width: 56 }} />
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -157,28 +180,34 @@ export default function PurchaseEntryPage() {
                   const badQty = !Number.isInteger(Number(l.qty)) || Number(l.qty) < 1
                   return (
                     <TableRow key={l.product.id}>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600 }}>{l.product.partNumber}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                      <TableCell sx={{ overflow: 'hidden' }}>
+                        <Typography sx={{ fontWeight: 600 }} noWrap>{l.product.partNumber}</Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}
+                          title={l.product.name}>
                           {l.product.name} · now in stock {l.product.stockQty}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <TextField size="small" type="number" value={l.qty} error={badQty}
+                        <TextField size="small" type="number" fullWidth value={l.qty} error={badQty}
                           inputRef={(el) => { qtyRefs.current[l.product.id] = el }}
                           onChange={(e) => updateLine(l.product.id, { qty: e.target.value })}
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchRef.current?.focus() } }}
                           slotProps={{ htmlInput: { min: 1, style: { textAlign: 'right' } } }} />
                       </TableCell>
                       <TableCell align="right">
-                        <TextField size="small" type="number" value={l.unitCost} error={l.unitCost === ''}
+                        <TextField size="small" type="number" fullWidth value={l.unitCost} error={l.unitCost === ''}
                           onChange={(e) => updateLine(l.product.id, { unitCost: e.target.value })}
                           slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right' } } }} />
                       </TableCell>
                       <TableCell align="right">
-                        <TextField size="small" type="number" value={l.gst}
+                        <TextField size="small" type="number" fullWidth value={l.gst}
                           onChange={(e) => updateLine(l.product.id, { gst: e.target.value })}
                           slotProps={{ htmlInput: { min: 0, max: 40, style: { textAlign: 'right' } } }} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField size="small" type="number" fullWidth value={sellOf(l)} error={belowCost(l)}
+                          onChange={(e) => updateLine(l.product.id, { sell: e.target.value })}
+                          slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right' } } }} />
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>{inr(lineTotal(l))}</TableCell>
                       <TableCell align="right">
@@ -188,7 +217,7 @@ export default function PurchaseEntryPage() {
                   )
                 })}
                 {d.lines.length === 0 && (
-                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5, color: 'text.secondary' }}>
                     No items yet. Search for a part above and press Enter.
                   </TableCell></TableRow>
                 )}
@@ -217,7 +246,8 @@ export default function PurchaseEntryPage() {
             <Typography variant="caption" color="text.secondary">Includes GST. The saved purchase shows the exact figure.</Typography>
             <TextField label="Paid now" type="number" fullWidth sx={{ mt: 2 }} value={d.paid}
               onChange={(e) => setD((p) => ({ ...p, paid: e.target.value }))}
-              error={!!paidError} helperText={paidError || 'Leave empty if you will pay the supplier later'} />
+              error={!!paidError} helperText={paidError || 'Leave empty if you will pay the supplier later'}
+              slotProps={rightAlign} />
             {paid > 0 && (
               <TextField select label="Method" fullWidth sx={{ mt: 2 }} value={d.method}
                 onChange={(e) => setD((p) => ({ ...p, method: e.target.value as PayMethod }))}>
@@ -229,9 +259,17 @@ export default function PurchaseEntryPage() {
               onChange={(e) => setD((p) => ({ ...p, notes: e.target.value }))} />
             <FormControlLabel sx={{ mt: 1 }}
               control={<Checkbox checked={d.updatePrice} onChange={(e) => setD((p) => ({ ...p, updatePrice: e.target.checked }))} />}
-              label="Update each part's purchase price to this cost" />
+              label="Update each part's cost price to this cost" />
           </Paper>
 
+          {belowCostLines.length > 0 && (
+            <Alert severity="warning">
+              Selling price is below your cost for:{' '}
+              {belowCostLines.map((l) =>
+                `${l.product.partNumber} (cost ${inr(costWithGst(l))} with GST, selling ${inr(Number(sellOf(l)))})`).join('; ')}.
+              Change the Selling price column if this is not what you want.
+            </Alert>
+          )}
           {(linesError || (touched && lineProblems.length > 0)) && (
             <Alert severity="error">{linesError || lineProblems.join('. ')}</Alert>
           )}

@@ -51,8 +51,8 @@ export default function HomePage() {
           <StatCard label="You owe suppliers" value={inr(d.supplierDues)}
             color={d.supplierDues > 0 ? 'warning.dark' : undefined} onClick={() => navigate('/purchases')} />
           <StatCard label="Low-stock parts" value={String(d.lowStockCount)}
-            color={d.lowStockCount > 0 ? 'error.main' : undefined} hint="At or below minimum stock"
-            onClick={() => navigate('/products')} />
+            color={d.lowStockCount > 0 ? 'error.main' : undefined} hint="Out of stock or at/below minimum"
+            onClick={() => navigate('/products?low=1')} />
         </Box>
       )}
     </>

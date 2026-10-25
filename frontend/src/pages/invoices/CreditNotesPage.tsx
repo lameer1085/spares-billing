@@ -35,7 +35,7 @@ export default function CreditNotesPage() {
       <Typography variant="h5" sx={{ mb: 2 }}>Credit notes (returns)</Typography>
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField autoFocus size="small" sx={{ minWidth: 280, flexGrow: 1 }}
-          placeholder="Search credit note or invoice number"
+          placeholder="Search credit note number, invoice number or customer"
           value={search} onChange={(e) => { setSearch(e.target.value); setPage(0) }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> } }} />
         <TextField size="small" type="date" label="From" value={from}

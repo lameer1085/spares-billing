@@ -16,6 +16,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { useDebounce } from '../../hooks/useDebounce'
 import ProductFormDialog from './ProductFormDialog'
 import StockAdjustDialog from './StockAdjustDialog'
+import { useSearchParams } from 'react-router-dom' 
 
 export default function ProductsPage() {
   const { isOwner } = useAuth()
@@ -30,6 +31,8 @@ export default function ProductsPage() {
   const [formFor, setFormFor] = useState<Product | 'new' | null>(null)
   const [adjusting, setAdjusting] = useState<Product | null>(null)
   const [actionError, setActionError] = useState('')
+  const [searchParams] = useSearchParams()
+  const [lowOnly, setLowOnly] = useState(searchParams.get('low') === '1')
 
   const q = useDebounce(search.trim())
 
@@ -37,7 +40,7 @@ export default function ProductsPage() {
   const categories = useQuery({ queryKey: ['categories'], queryFn: async () => (await api.get<NameItem[]>('/categories')).data })
 
   const products = useQuery({
-    queryKey: ['products', q, brandId, categoryId, includeInactive, page, size],
+    queryKey: ['products', q, brandId, categoryId, includeInactive, page, size,lowOnly],
     queryFn: async () =>
       (await api.get<PageResponse<Product>>('/products', {
         params: {
@@ -45,6 +48,7 @@ export default function ProductsPage() {
           brandId: brandId || undefined,
           categoryId: categoryId || undefined,
           includeInactive,
+          lowStock: lowOnly || undefined,
           page,
           size,
         },
@@ -89,6 +93,8 @@ export default function ProductsPage() {
           <FormControlLabel label="Show inactive"
             control={<Checkbox checked={includeInactive} onChange={(e) => resetPage(setIncludeInactive)(e.target.checked)} />} />
         )}
+          <FormControlLabel label="Low or out of stock only"
+            control={<Checkbox checked={lowOnly} onChange={(e) => resetPage(setLowOnly)(e.target.checked)} />} />
       </Paper>
 
       {products.error && <Alert severity="error" sx={{ mb: 2 }}>{errorMessage(products.error)}</Alert>}
