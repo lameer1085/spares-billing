@@ -3,8 +3,15 @@ import type { InvoiceFull } from '../../api/types'
 
 const n2 = (n: number | null | undefined) => (n ?? 0).toFixed(2)
 
-export default function PrintableInvoice({ inv, mode }: { inv: InvoiceFull; mode: 'a4' | 'receipt' }) {
-  const igst = inv.igstTotal > 0
+export default function PrintableInvoice({
+inv,
+mode,
+ewayNo,
+}: {
+inv: InvoiceFull
+mode: 'a4' | 'receipt'
+ewayNo?: string | null
+}) {  const igst = inv.igstTotal > 0
   const cancelled = inv.status === 'CANCELLED'
   const buyer = inv.customer
 

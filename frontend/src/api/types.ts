@@ -414,3 +414,31 @@ export interface ShopSettings {
   bankIfsc: string | null
   upiId: string | null
 }
+export interface EwayDetails {
+  invoiceId: number
+  toPincode: string | null
+  toPlace: string | null
+  distanceKm: number | null
+  transMode: number
+  vehicleNo: string | null
+  transporterName: string | null
+  transporterId: string | null
+  transDocNo: string | null
+  transDocDate: string | null
+  ewayBillNo: string | null
+  ewayBillDate: string | null
+}
+export interface AppUser {
+  id: number
+  username: string
+  fullName: string
+  role: 'OWNER' | 'STAFF'
+  active: boolean
+  mustChangePassword: boolean
+}
+
+export interface Branding {
+  appName: string
+  hasFavicon: boolean
+  version: number
+}

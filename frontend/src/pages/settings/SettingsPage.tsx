@@ -4,6 +4,8 @@ import { Alert, Box, Button, MenuItem, Paper, TextField, Typography } from '@mui
 import { api, errorMessage } from '../../api/client'
 import type { ShopSettings, StateItem } from '../../api/types'
 import { splitServerMessage } from '../../utils/formErrors'
+import BrandingCard from './BrandingCard'
+
 
 type Form = {
   shopName: string; address: string; phone: string; gstin: string; stateCode: string; pincode: string
@@ -93,6 +95,7 @@ export default function SettingsPage() {
       </Alert>
 
       <Paper sx={{ p: 2, mb: 2, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <BrandingCard />
         <Typography variant="h6" sx={{ gridColumn: '1 / -1' }}>Shop</Typography>
         {field('shopName', 'Shop name', { required: true, sx: { gridColumn: '1 / -1' } })}
         {field('address', 'Address', { multiline: true, minRows: 2, sx: { gridColumn: '1 / -1' } })}

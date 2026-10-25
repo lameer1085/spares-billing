@@ -12,6 +12,10 @@ import { fmtDate } from '../../utils/format'
 import PrintableInvoice from './PrintableInvoice'
 import ReturnDialog from './ReturnDialog'
 import CreditNoteDialog from './CreditNoteDialog'
+import EwayDialog from './EwayDialog'
+import { ewayNeeded } from './ewayJson'
+import type { EwayDetails } from '../../api/types'
+
 
 export default function InvoiceDialog({ id, onClose }: { id: number; onClose: () => void }) {
   const { isOwner } = useAuth()
@@ -22,10 +26,16 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
   const [openCn, setOpenCn] = useState<number | null>(null)
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
+  const [ewayOpen, setEwayOpen] = useState(false)
 
   const { data: inv, isLoading, error: loadError } = useQuery({
     queryKey: ['invoice', id],
     queryFn: async () => (await api.get<InvoiceFull>(`/invoices/${id}`)).data,
+  })
+  const eway = useQuery({
+    queryKey: ['eway', id],
+    enabled: !!inv,
+    queryFn: async () => (await api.get<EwayDetails>(`/invoices/${id}/eway`)).data,
   })
 
   const creditNotes = useQuery({
@@ -190,12 +200,23 @@ export default function InvoiceDialog({ id, onClose }: { id: number; onClose: ()
             <Button color="error" onClick={() => setCancelling(true)} sx={{ mr: 'auto' }}>Cancel invoice</Button>
           )}
           {canReturn && <Button color="warning" onClick={() => setReturning(true)}>Return items</Button>}
+          {inv && inv.status === 'ACTIVE' && (
+            <Button color={ewayNeeded(inv) ? 'warning' : 'inherit'} variant={ewayNeeded(inv) ? 'outlined' : 'text'}
+              onClick={() => setEwayOpen(true)}>
+              {eway.data?.ewayBillNo ? 'E-way bill ✓' : ewayNeeded(inv) ? 'E-way bill (needed)' : 'E-way bill'}
+            </Button>
+          )}
           <Button disabled={!inv} onClick={() => setPrintMode('receipt')}>Print receipt</Button>
           <Button variant="contained" disabled={!inv} onClick={() => setPrintMode('a4')}>Print A4</Button>
           <Button onClick={onClose}>Close</Button>
         </DialogActions>
       </Dialog>
-
+       {inv && ewayOpen && (
+          <EwayDialog
+            inv={inv}
+            onClose={() => setEwayOpen(false)}
+            />
+        )}
       {inv && returning && (
         <ReturnDialog invoice={inv} creditedBefore={creditedBefore}
           onClose={() => setReturning(false)}

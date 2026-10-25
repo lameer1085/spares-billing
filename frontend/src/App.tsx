@@ -18,9 +18,9 @@ import ReportsPage from './pages/reports/ReportsPage'
 import QuotationsPage from './pages/quotations/QuotationsPage'
 import QuotationFormPage from './pages/quotations/QuotationFormPage'
 import SettingsPage from './pages/settings/SettingsPage'
-
-
-
+import BrandingEffect from './components/BrandingEffect'
+import UsersPage from './pages/users/UsersPage'
+import AccountPage from './pages/account/AccountPage'
 
 
 
@@ -29,6 +29,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <DraftProvider> 
+        <BrandingEffect />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route element={<ProtectedRoute />}>
@@ -45,11 +46,14 @@ export default function App() {
               <Route path="/quotations/new" element={<QuotationFormPage />} />
               <Route path="/quotations/:id/edit" element={<QuotationFormPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              
             </Route>
             <Route element={<ProtectedRoute ownerOnly />}>
               <Route path="/purchases" element={<PurchasesPage />} />
               <Route path="/purchases/new" element={<PurchaseEntryPage />} />
               <Route path="/suppliers" element={<SuppliersPage />} />
+              <Route path="/users" element={<UsersPage />} /> 
             </Route>
           </Route>
         </Routes>
