@@ -21,7 +21,7 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     Optional<Product> findById(Long id);
 
     @EntityGraph(attributePaths = {"brand", "category"})
-    @Query("select p from Product p where p.active = true and p.minStock > 0 "
+    @Query("select p from Product p where p.active = true "
             + "and p.stockQty <= p.minStock order by p.stockQty asc, p.name asc")
     List<Product> findLowStock();
 

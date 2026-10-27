@@ -23,9 +23,10 @@ public class ProductController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long brandId,
             @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(defaultValue = "false") boolean lowStock,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return productService.search(q, categoryId, brandId, includeInactive, page, size);
+        return productService.search(q, categoryId, brandId, includeInactive, lowStock, page, size);
     }
 
     @GetMapping("/low-stock")

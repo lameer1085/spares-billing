@@ -121,7 +121,7 @@ public class ReportRepository {
     public List<Object[]> stockCounts() {
         return rows("""
                 SELECT COUNT(*) FILTER (WHERE stock_qty = 0),
-                       COUNT(*) FILTER (WHERE min_stock > 0 AND stock_qty <= min_stock)
+                       COUNT(*) FILTER (WHERE stock_qty > 0 AND stock_qty <= min_stock)
                 FROM products WHERE active = TRUE
                 """, Map.of());
     }

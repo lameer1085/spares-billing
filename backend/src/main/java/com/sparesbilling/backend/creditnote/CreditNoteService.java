@@ -29,6 +29,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 
 @Service
 @RequiredArgsConstructor
@@ -225,7 +227,20 @@ public class CreditNoteService {
         Specification<CreditNote> spec = (root, query, cb) -> {
             List<Predicate> ps = new ArrayList<>();
             if (q != null && !q.isBlank()) {
-                ps.add(cb.like(cb.lower(root.<String>get("creditNoteNo")), ContactRules.searchPattern(q)));
+                String pattern = ContactRules.searchPattern(q);
+                Subquery<Long> invSub = query.subquery(Long.class);
+                Root<Invoice> invRoot = invSub.from(Invoice.class);
+                invSub.select(invRoot.<Long>get("id"))
+                        .where(cb.like(cb.lower(invRoot.<String>get("invoiceNo")), pattern));
+                Subquery<Long> custSub = query.subquery(Long.class);
+                Root<Customer> custRoot = custSub.from(Customer.class);
+                custSub.select(custRoot.<Long>get("id")).where(cb.or(
+                        cb.like(cb.lower(custRoot.<String>get("name")), pattern),
+                        cb.like(cb.lower(custRoot.<String>get("phone")), pattern)));
+                ps.add(cb.or(
+                        cb.like(cb.lower(root.<String>get("creditNoteNo")), pattern),
+                        root.get("invoiceId").in(invSub),
+                        root.get("customerId").in(custSub)));
             }
             if (invoiceId != null) ps.add(cb.equal(root.get("invoiceId"), invoiceId));
             if (customerId != null) ps.add(cb.equal(root.get("customerId"), customerId));

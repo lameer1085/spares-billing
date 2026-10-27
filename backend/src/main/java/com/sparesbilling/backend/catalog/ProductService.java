@@ -31,6 +31,13 @@ public class ProductService {
     @Transactional(readOnly = true)
     public PageResponse<ProductResponse> search(String q, Long categoryId, Long brandId,
                                                 boolean includeInactive, int page, int size) {
+        return search(q, categoryId, brandId, includeInactive, false, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ProductResponse> search(String q, Long categoryId, Long brandId,
+                                                boolean includeInactive, boolean lowStockOnly,
+                                                int page, int size) {
         Specification<Product> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (!includeInactive) {
@@ -41,6 +48,9 @@ public class ProductService {
             }
             if (brandId != null) {
                 predicates.add(cb.equal(root.get("brand").get("id"), brandId));
+            }
+            if (lowStockOnly) {
+                predicates.add(cb.le(root.<Integer>get("stockQty"), root.<Integer>get("minStock")));
             }
             if (q != null && !q.isBlank()) {
                 Join<Product, Brand> brand = root.join("brand", JoinType.LEFT);
@@ -58,7 +68,8 @@ public class ProductService {
         };
 
         PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
-                Sort.by("partNumber").ascending());
+                lowStockOnly ? Sort.by("stockQty").ascending().and(Sort.by("partNumber").ascending())
+                        : Sort.by("partNumber").ascending());
         return PageResponse.from(productRepository.findAll(spec, pageable).map(this::toResponse));
     }
 

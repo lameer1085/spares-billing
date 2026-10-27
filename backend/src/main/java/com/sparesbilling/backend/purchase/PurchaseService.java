@@ -139,6 +139,9 @@ public class PurchaseService {
             if (updatePrice) {
                 prod.setPurchasePrice(pi.getUnitCost());
             }
+            if (it.newSellingPrice() != null) {
+                prod.setSellingPrice(it.newSellingPrice().setScale(2, RoundingMode.HALF_UP));
+            }
         }
 
         BigDecimal paid = req.paidAmount() == null

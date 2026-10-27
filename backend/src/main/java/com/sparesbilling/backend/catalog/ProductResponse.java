@@ -24,6 +24,6 @@ public record ProductResponse(
                 p.getSellingPrice(),
                 p.getStockQty(), p.getMinStock(), p.getRackLocation(),
                 p.isActive(),
-                p.getMinStock() > 0 && p.getStockQty() <= p.getMinStock());
+                p.getStockQty() <= p.getMinStock());
     }
 }
