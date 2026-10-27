@@ -17,6 +17,7 @@ import { useDebounce } from '../../hooks/useDebounce'
 import ProductFormDialog from './ProductFormDialog'
 import StockAdjustDialog from './StockAdjustDialog'
 import { useSearchParams } from 'react-router-dom' 
+import NameManagerDialog from './NameManagerDialog'
 
 export default function ProductsPage() {
   const { isOwner } = useAuth()
@@ -33,6 +34,7 @@ export default function ProductsPage() {
   const [actionError, setActionError] = useState('')
   const [searchParams] = useSearchParams()
   const [lowOnly, setLowOnly] = useState(searchParams.get('low') === '1')
+  const [managing, setManaging] = useState(false)
 
   const q = useDebounce(search.trim())
 
@@ -69,7 +71,8 @@ export default function ProductsPage() {
     <>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
         <Typography variant="h5" sx={{ flexGrow: 1 }}>Products</Typography>
-        {isOwner && <Button variant="contained" onClick={() => setFormFor('new')}>Add product</Button>}
+          {isOwner && <Button onClick={() => setManaging(true)}>Brands &amp; categories</Button>}
+          {isOwner && <Button variant="contained" onClick={() => setFormFor('new')}>Add product</Button>}
       </Box>
 
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -172,6 +175,7 @@ export default function ProductsPage() {
           onClose={() => setFormFor(null)} />
       )}
       {adjusting && <StockAdjustDialog product={adjusting} onClose={() => setAdjusting(null)} />}
+      {managing && <NameManagerDialog onClose={() => setManaging(false)} />}
     </>
   )
 }

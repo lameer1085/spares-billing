@@ -15,6 +15,16 @@ import ProductSearch from './ProductSearch'
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
+// If a percent is set on the line, the rupee discount follows it (also when the quantity changes)
+const withPct = (l: Line, patch: Partial<Line>): Line => {
+  const next = { ...l, ...patch }
+  if (next.discountPct) {
+    const gross = r2(next.product.sellingPrice * (Number(next.qty) || 0))
+    next.discount = String(r2((gross * Number(next.discountPct)) / 100))
+  }
+  return next
+}
+
 export default function BillingPage() {
   const qc = useQueryClient()
   const { draft, update, clear } = useDraft()
@@ -34,6 +44,7 @@ export default function BillingPage() {
   const searchRef = useRef<HTMLInputElement>(null)
   const qtyRefs = useRef<Record<number, HTMLInputElement | null>>({})
   const [focusId, setFocusId] = useState<number | null>(null)
+  const [allPct, setAllPct] = useState('')
 
   const isWalkIn = customer === null
   const mode: PayMode = isWalkIn ? 'FULL' : payMode // walk-in customers must pay in full
@@ -93,15 +104,19 @@ export default function BillingPage() {
       const i = prev.findIndex((l) => l.product.id === p.id)
       if (i >= 0) {
         const copy = [...prev]
-        copy[i] = { ...copy[i], qty: String((Number(copy[i].qty) || 0) + 1) }
+          copy[i] = withPct(copy[i], { qty: String((Number(copy[i].qty) || 0) + 1) })
         return copy
       }
       return [...prev, { product: p, qty: '1', discount: '' }]
     })
     setFocusId(p.id)
   }
-  const updateLine = (id: number, patch: Partial<Line>) =>
-    setLines((prev) => prev.map((l) => (l.product.id === id ? { ...l, ...patch } : l)))
+    const updateLine = (id: number, patch: Partial<Line>) =>
+      setLines((prev) => prev.map((l) => (l.product.id === id ? withPct(l, patch) : l)))
+    const applyAll = () => {
+      if (allPct === '' || Number(allPct) < 0 || Number(allPct) > 100) return
+      setLines((prev) => prev.map((l) => withPct(l, { discountPct: allPct })))
+    }
   const removeLine = (id: number) => {
     setLines((prev) => prev.filter((l) => l.product.id !== id))
     searchRef.current?.focus()
@@ -171,8 +186,16 @@ export default function BillingPage() {
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 2, alignItems: 'start' }}>
       {/* LEFT: items */}
       <Box sx={{ display: 'grid', gap: 2 }}>
-        <Paper sx={{ p: 2 }}>
-          <ProductSearch onPick={addProduct} inputRef={searchRef} />
+        <Paper sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ flexGrow: 1, minWidth: 280 }}>
+            <ProductSearch onPick={addProduct} inputRef={searchRef} />
+          </Box>
+          <TextField size="small" type="number" label="Discount % for all" value={allPct} sx={{ width: 170 }}
+            onChange={(e) => setAllPct(e.target.value)}
+            slotProps={{ htmlInput: { min: 0, max: 100, style: { textAlign: 'right' } } }} />
+          <Button variant="outlined" onClick={applyAll} disabled={allPct === '' || lines.length === 0}>
+            Apply to all
+          </Button>
         </Paper>
 
         <Paper>
@@ -183,6 +206,7 @@ export default function BillingPage() {
                 <TableCell>Part</TableCell>
                 <TableCell align="right">Price</TableCell>
                 <TableCell align="right" sx={{ width: 90 }}>Qty</TableCell>
+                <TableCell align="right" sx={{ width: 100 }}>Disc %</TableCell>
                 <TableCell align="right" sx={{ width: 110 }}>Discount ₹</TableCell>
                 <TableCell align="right">Amount</TableCell>
                 <TableCell />
@@ -209,8 +233,14 @@ export default function BillingPage() {
                         slotProps={{ htmlInput: { min: 1, style: { textAlign: 'right' } } }} />
                     </TableCell>
                     <TableCell align="right">
+                      <TextField size="small" type="number" value={l.discountPct ?? ''}
+                        onChange={(e) => updateLine(l.product.id,
+                          e.target.value === '' ? { discountPct: '', discount: '' } : { discountPct: e.target.value })}
+                        slotProps={{ htmlInput: { min: 0, max: 100, style: { textAlign: 'right' } } }} />
+                    </TableCell>
+                    <TableCell align="right">
                       <TextField size="small" type="number" value={l.discount}
-                        onChange={(e) => updateLine(l.product.id, { discount: e.target.value })}
+                        onChange={(e) => updateLine(l.product.id, { discount: e.target.value, discountPct: '' })}
                         slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right' } } }} />
                     </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600 }}>{inr(calc[i].net)}</TableCell>
@@ -221,7 +251,7 @@ export default function BillingPage() {
                 )
               })}
               {lines.length === 0 && (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 5, color: 'text.secondary' }}>
                   No items yet. Search for a part above and press Enter.
                 </TableCell></TableRow>
               )}

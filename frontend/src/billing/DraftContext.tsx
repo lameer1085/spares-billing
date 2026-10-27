@@ -5,7 +5,8 @@ import type { Customer, PayMethod, Product } from '../api/types'
 export interface Line {
   product: Product
   qty: string
-  discount: string
+  discount: string      // rupees off this line, GST included (what the server receives)
+  discountPct?: string  // optional: if set, discount is recalculated from it when the quantity changes
 }
 export type PayMode = 'FULL' | 'CREDIT' | 'PART'
 
