@@ -51,6 +51,9 @@ public class Product {
     @Column(name = "selling_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal sellingPrice;
 
+    @Column(name = "list_price", precision = 12, scale = 2)
+    private BigDecimal listPrice;
+
     @Column(name = "stock_qty", nullable = false)
     private int stockQty = 0;
 

@@ -142,6 +142,12 @@ public class PurchaseService {
             if (it.newSellingPrice() != null) {
                 prod.setSellingPrice(it.newSellingPrice().setScale(2, RoundingMode.HALF_UP));
             }
+            if (it.newListPrice() != null) {
+                prod.setListPrice(it.newListPrice().setScale(2, RoundingMode.HALF_UP));
+            }
+            if (prod.getSellingPrice().compareTo(prod.getMrp()) > 0) {
+                prod.setMrp(prod.getSellingPrice());   // MRP can never be below the selling price
+            }
         }
 
         BigDecimal paid = req.paidAmount() == null

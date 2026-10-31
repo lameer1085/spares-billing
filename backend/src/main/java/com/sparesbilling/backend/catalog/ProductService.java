@@ -157,6 +157,7 @@ public class ProductService {
         p.setMrp(req.mrp());
         p.setPurchasePrice(req.purchasePrice());
         p.setSellingPrice(req.sellingPrice());
+        p.setListPrice(req.listPrice());
         p.setMinStock(req.minStock() == null ? 0 : req.minStock());
         p.setRackLocation(blankToNull(req.rackLocation()));
     }

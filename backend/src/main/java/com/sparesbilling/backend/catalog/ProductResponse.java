@@ -9,7 +9,8 @@ public record ProductResponse(
         String vehicleCompatibility, String hsnCode,
         BigDecimal gstRate, BigDecimal mrp, BigDecimal purchasePrice, BigDecimal sellingPrice,
         int stockQty, int minStock, String rackLocation,
-        boolean active, boolean lowStock
+        boolean active, boolean lowStock,
+        BigDecimal listPrice
 ) {
     public static ProductResponse from(Product p, boolean showCost) {
         Brand b = p.getBrand();
@@ -24,6 +25,7 @@ public record ProductResponse(
                 p.getSellingPrice(),
                 p.getStockQty(), p.getMinStock(), p.getRackLocation(),
                 p.isActive(),
-                p.getStockQty() <= p.getMinStock());
+                p.getStockQty() <= p.getMinStock(),
+                p.getListPrice());
     }
 }
