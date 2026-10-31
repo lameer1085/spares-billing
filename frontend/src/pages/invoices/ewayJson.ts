@@ -15,6 +15,7 @@ export const LIMIT_OTHER_STATE = 50000
 const ddmmyyyy = (iso: string) => { const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}` }
 const money = (n: number) => Math.round(n * 100) / 100
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim()
+const hsnOf = (l: { hsnCode: string | null }) => (l.hsnCode ?? '').replace(/\D/g, '')
 
 export function ewayNeeded(inv: InvoiceFull): boolean {
   if (inv.status !== 'ACTIVE') return false
@@ -35,7 +36,7 @@ export function buildEwayJson(inv: InvoiceFull, f: EwayForm): { json?: object; p
   if (!f.fromPlace.trim()) problems.push('Your dispatch place is required')
   if (!inv.customer) problems.push('Walk-in bill: pick a customer on the bill, or the buyer will be sent as unregistered "URP" with the name "Cash customer"')
   inv.items.forEach((l, i) => {
-    if (!/^\d{4,8}$/.test(l.hsnCode ?? '')) problems.push(`Line ${i + 1}: HSN code (4 to 8 digits) is missing`)
+    if (!/^\d{4,8}$/.test(hsnOf(l))) problems.push(`Line ${i + 1}: HSN code (4 to 8 digits) is missing`)
   })
   const hard = problems.filter((p) => !p.startsWith('Walk-in'))
   if (hard.length > 0) return { problems }
@@ -82,12 +83,12 @@ export function buildEwayJson(inv: InvoiceFull, f: EwayForm): { json?: object; p
     totInvValue: money(inv.grandTotal),
     transMode: Number(f.transMode),
     transDistance: Number(f.distanceKm) || 0,
-    mainHsnCode: Number(inv.items[0].hsnCode),
+    mainHsnCode: Number(hsnOf(inv.items[0])),
     itemList: inv.items.map((l, i) => ({
       itemNo: i + 1,
       productName: clean(l.description).slice(0, 100),
       productDesc: clean(l.description).slice(0, 100),
-      hsnCode: Number(l.hsnCode),
+      hsnCode: Number(hsnOf(l)),
       quantity: l.quantity,
       qtyUnit: 'NOS',
       taxableAmount: money(l.taxableAmount),

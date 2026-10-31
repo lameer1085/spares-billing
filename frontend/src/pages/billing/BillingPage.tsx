@@ -12,6 +12,7 @@ import type { Line, PayMode } from '../../billing/DraftContext'
 import CustomerPicker from './CustomerPicker'
 import { useDraft } from '../../billing/DraftContext'
 import ProductSearch from './ProductSearch'
+import { useLiveProducts } from '../../hooks/useLiveProducts'
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
@@ -122,6 +123,20 @@ export default function BillingPage() {
     searchRef.current?.focus()
   }
 
+  // A part was edited in Products after it was added to this bill (or its stock changed):
+  // the line takes the new price, GST and stock. A percent discount is worked out again on the new price.
+  useLiveProducts(lines.map((l) => l.product.id), (fresh) =>
+    setLines((prev) => {
+      let changed = false
+      const out = prev.map((l) => {
+        const p = fresh.find((x) => x.id === l.product.id)
+        if (!p || JSON.stringify(p) === JSON.stringify(l.product)) return l
+        changed = true
+        return withPct(l, { product: p })
+      })
+      return changed ? out : prev
+    }))
+
   // ---- validation and save ----
   const validate = (): string => {
     if (lines.length === 0) return 'Add at least one item.'
@@ -198,16 +213,17 @@ export default function BillingPage() {
           </Button>
         </Paper>
 
-        <Paper>
-          <Table size="small">
+        {/* only this box scrolls, so the search box above stays in view */}
+        <Paper sx={{ overflow: 'auto', minHeight: 260, maxHeight: { xs: 'none', md: 'calc(100vh - 220px)' } }}>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
                 <TableCell>#</TableCell>
                 <TableCell>Part</TableCell>
                 <TableCell align="right">Price</TableCell>
-                <TableCell align="right" sx={{ width: 90 }}>Qty</TableCell>
-                <TableCell align="right" sx={{ width: 100 }}>Disc %</TableCell>
-                <TableCell align="right" sx={{ width: 110 }}>Discount ₹</TableCell>
+                <TableCell align="right" sx={{ width: 110 }}>Qty</TableCell>
+                <TableCell align="right" sx={{ width: 120 }}>Disc %</TableCell>
+                <TableCell align="right" sx={{ width: 150 }}>Discount ₹</TableCell>
                 <TableCell align="right">Amount</TableCell>
                 <TableCell />
               </TableRow>
@@ -226,20 +242,20 @@ export default function BillingPage() {
                     </TableCell>
                     <TableCell align="right">{inr(l.product.sellingPrice)}</TableCell>
                     <TableCell align="right">
-                      <TextField size="small" type="number" value={l.qty} error={over}
+                      <TextField size="small" type="number" fullWidth value={l.qty} error={over}
                         inputRef={(el) => { qtyRefs.current[l.product.id] = el }}
                         onChange={(e) => updateLine(l.product.id, { qty: e.target.value })}
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchRef.current?.focus() } }}
                         slotProps={{ htmlInput: { min: 1, style: { textAlign: 'right' } } }} />
                     </TableCell>
                     <TableCell align="right">
-                      <TextField size="small" type="number" value={l.discountPct ?? ''}
+                      <TextField size="small" type="number" fullWidth value={l.discountPct ?? ''}
                         onChange={(e) => updateLine(l.product.id,
                           e.target.value === '' ? { discountPct: '', discount: '' } : { discountPct: e.target.value })}
                         slotProps={{ htmlInput: { min: 0, max: 100, style: { textAlign: 'right' } } }} />
                     </TableCell>
                     <TableCell align="right">
-                      <TextField size="small" type="number" value={l.discount}
+                      <TextField size="small" type="number" fullWidth value={l.discount}
                         onChange={(e) => updateLine(l.product.id, { discount: e.target.value, discountPct: '' })}
                         slotProps={{ htmlInput: { min: 0, style: { textAlign: 'right' } } }} />
                     </TableCell>

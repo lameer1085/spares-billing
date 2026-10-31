@@ -25,6 +25,7 @@ export interface Product {
   mrp: number
   purchasePrice: number | null // null for staff
   sellingPrice: number
+  listPrice: number | null
   stockQty: number
   minStock: number
   rackLocation: string | null

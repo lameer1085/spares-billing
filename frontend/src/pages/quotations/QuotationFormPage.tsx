@@ -10,6 +10,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import { api, errorMessage } from '../../api/client'
 import type { Customer, Product, QuotationFull, StateItem } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
+import { useLiveProducts } from '../../hooks/useLiveProducts'
 import { usePersistentState } from '../../hooks/usePersistentState'
 import { todayIST } from '../../utils/dates'
 import { splitServerMessage } from '../../utils/formErrors'
@@ -17,6 +18,10 @@ import CustomerPicker from '../billing/CustomerPicker'
 import ProductSearch from '../billing/ProductSearch'
 import { DEFAULT_TERMS, loadDefaultTerms, saveDefaultTerms } from './quotationDefaults'
 import { calcLine, calcTotals, rs, type QLine } from './quotationCalc'
+
+// basePrice = the price the part had when the line was added. While the line still shows that price,
+// it follows the part when you edit it in Products. A price you typed yourself is never overwritten.
+type QL = QLine & { basePrice?: string }
 
 interface QDraft {
   customer: Customer | null
@@ -27,7 +32,7 @@ interface QDraft {
   pos: string
   date: string
   validityDays: string
-  lines: QLine[]
+  lines: QL[]
   terms: string
   notes: string
 }
@@ -45,6 +50,8 @@ const KEYWORDS: [RegExp, FieldKey][] = [
 
 const newKey = () => Math.random().toString(36).slice(2)
 const exGst = (p: Product) => Math.round(((p.sellingPrice * 100) / (100 + p.gstRate)) * 100) / 100
+// the quotation starts at the list price; parts without one use the selling price less GST
+const quotePrice = (p: Product) => (p.listPrice ?? exGst(p)).toFixed(2)
 
 function fromQuotation(q: QuotationFull, asEdit: boolean): QDraft {
   const days = Math.max(1, Math.round((Date.parse(q.validUntil) - Date.parse(q.quotationDate)) / 86400000))
@@ -138,27 +145,53 @@ export default function QuotationFormPage() {
 
   // ---------- lines ----------
   const addProduct = (p: Product) => {
-    const line: QLine = {
+    const line: QL = {
       key: newKey(), productId: p.id, partNumber: p.partNumber, description: p.name, hsnCode: p.hsnCode ?? '',
-      qty: '1', unit: 'NOS', price: exGst(p).toFixed(2), discount: allDiscount, gst: String(p.gstRate),
-      purchasePrice: p.purchasePrice,
+      qty: '1', unit: 'NOS', price: quotePrice(p), basePrice: quotePrice(p), discount: allDiscount,
+      gst: String(p.gstRate), purchasePrice: p.purchasePrice,
     }
     setD((prev) => ({ ...prev, lines: [...prev.lines, line] }))
     setTimeout(() => { const el = qtyRefs.current[line.key]; el?.focus(); el?.select() }, 60)
   }
   const addCustomLine = () => {
-    const line: QLine = {
+    const line: QL = {
       key: newKey(), productId: null, partNumber: '', description: '', hsnCode: '', qty: '1', unit: 'NOS',
       price: '', discount: allDiscount, gst: '18', purchasePrice: null,
     }
     setD((prev) => ({ ...prev, lines: [...prev.lines, line] }))
   }
-  const updateLine = (key: string, patch: Partial<QLine>) =>
+  const updateLine = (key: string, patch: Partial<QL>) =>
     setD((prev) => ({ ...prev, lines: prev.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)) }))
   const removeLine = (key: string) => {
     setD((prev) => ({ ...prev, lines: prev.lines.filter((l) => l.key !== key) }))
     searchRef.current?.focus()
   }
+  // A part was edited in Products after it was added here: lines you have not changed take the new
+  // price, GST and HSN. Your own typed prices stay. The cost (owner only) is always refreshed.
+  useLiveProducts(d.lines.flatMap((l) => (l.productId != null ? [l.productId] : [])), (fresh) =>
+    setD((prev) => {
+      let changed = false
+      const lines = prev.lines.map((l) => {
+        const p = fresh.find((x) => x.id === l.productId)
+        if (!p) return l
+        const next: QL = { ...l }
+        if (isOwner) next.purchasePrice = p.purchasePrice
+        const price = quotePrice(p)
+        if (l.basePrice !== undefined && l.price === l.basePrice && l.basePrice !== price) {
+          next.price = price
+          next.basePrice = price
+          next.gst = String(p.gstRate)
+          next.hsnCode = p.hsnCode ?? ''
+        }
+        if (next.purchasePrice !== l.purchasePrice || next.price !== l.price || next.gst !== l.gst || next.hsnCode !== l.hsnCode) {
+          changed = true
+          return next
+        }
+        return l
+      })
+      return changed ? { ...prev, lines } : prev
+    }))
+
   const applyAll = () => {
     if (allDiscount === '' || Number(allDiscount) < 0 || Number(allDiscount) > 100) return
     setD((prev) => ({ ...prev, lines: prev.lines.map((l) => ({ ...l, discount: allDiscount })) }))
@@ -304,18 +337,19 @@ export default function QuotationFormPage() {
       </Paper>
 
       {/* ITEMS */}
-      <Paper sx={{ mb: 2, overflowX: 'auto' }}>
-        <Table size="small" sx={{ minWidth: 1100 }}>
+      {/* only this box scrolls, so the search box above stays in view */}
+      <Paper sx={{ mb: 2, overflow: 'auto', maxHeight: 'calc(100vh - 260px)', minHeight: 260 }}>
+        <Table stickyHeader size="small" sx={{ minWidth: 1250 }}>
           <TableHead>
             <TableRow>
               <TableCell>#</TableCell>
               <TableCell>Part</TableCell>
               <TableCell>HSN</TableCell>
-              <TableCell align="right" sx={{ width: 80 }}>Qty</TableCell>
-              <TableCell sx={{ width: 70 }}>Unit</TableCell>
-              <TableCell align="right" sx={{ width: 120 }}>Price (excl. GST)</TableCell>
-              <TableCell align="right" sx={{ width: 90 }}>Disc %</TableCell>
-              <TableCell align="right" sx={{ width: 80 }}>GST %</TableCell>
+              <TableCell align="right" sx={{ width: 100 }}>Qty</TableCell>
+              <TableCell sx={{ width: 80 }}>Unit</TableCell>
+              <TableCell align="right" sx={{ width: 150 }}>Price (excl. GST)</TableCell>
+              <TableCell align="right" sx={{ width: 100 }}>Disc %</TableCell>
+              <TableCell align="right" sx={{ width: 95 }}>GST %</TableCell>
               <TableCell align="right">Taxable</TableCell>
               <TableCell align="right">Line total</TableCell>
               <TableCell />
@@ -343,7 +377,7 @@ export default function QuotationFormPage() {
                   </TableCell>
                   <TableCell>
                     <TextField {...cell} value={l.hsnCode} onChange={(e) => updateLine(l.key, { hsnCode: e.target.value })}
-                      sx={{ width: 110 }} />
+                      sx={{ width: 120 }} />
                   </TableCell>
                   <TableCell align="right">
                     <TextField {...cell} type="number" value={l.qty}

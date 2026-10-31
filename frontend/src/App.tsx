@@ -21,6 +21,7 @@ import SuppliersPage from './pages/suppliers/SuppliersPage'
 import ReportsPage from './pages/reports/ReportsPage'
 import SettingsPage from './pages/settings/SettingsPage'
 import UsersPage from './pages/users/UsersPage'
+import GlobalInputStyles from './components/GlobalInputStyles'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
       <AuthProvider>
         <DraftProvider>
           <BrandingEffect />
+          <GlobalInputStyles />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route element={<ProtectedRoute />}>
